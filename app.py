@@ -211,10 +211,51 @@ def stop_following(follow_id):
 
 
 @app.route('/users/profile', methods=["GET", "POST"])
-def profile():
-    """Update profile for current user."""
+def edit_user():
+    """Edit user profile."""
 
-    # IMPLEMENT THIS
+    if not g.user:
+        flash("You must be logged in to edit your profile.", "danger")
+        return redirect("/login")
+
+    form = UserAddForm(obj=g.user)
+
+    if form.validate_on_submit():
+        try:
+            user = User.authenticate(g.user.username,
+                                     form.password.data)
+            try:
+                # check for unique fields to be available and raise properly messages if not
+                if User.query.filter(User.username == form.username.data).first() and form.username.data != g.user.username:
+                    raise Exception("Username already taken")
+                
+                if User.query.filter(User.email == form.email.data).first() and form.email.data != g.user.email:
+                    raise Exception("Email already taken")
+            except Exception as e:
+                flash(str(e), 'danger')
+                return render_template('users/edit.html', form=form)
+            
+            if user:
+                user.username = form.username.data
+                user.email = form.email.data
+                user.image_url = form.image_url.data or User.image_url.default.arg
+                user.header_image_url = form.header_image_url.data or User.header_image_url.default.arg
+                user.bio = form.bio.data or None
+                db.session.commit()
+
+                flash("Profile updated!", "success")
+                return redirect(f"/users/{user.id}")
+
+            flash("Profile not updated. Incorrect password.", 'danger')
+            return redirect('/')
+
+        except IntegrityError as e:
+            # We are catching the errors before this point, but if we get an error
+            db.session.rollback()
+            flash(str(e.orig).split(':')[-1].strip(), 'danger')
+
+
+    return render_template('users/edit.html', form=form)
 
 
 @app.route('/users/delete', methods=["POST"])
