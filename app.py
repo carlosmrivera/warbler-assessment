@@ -336,11 +336,15 @@ def homepage():
     """
 
     if g.user:
+        # get messages from users that the current user is following or from the current user
         messages = (Message
                     .query
+                    .filter((Message.user_id.in_([user.id for user in g.user.following])) | (Message.user_id == g.user.id))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
+        
+        
 
         return render_template('home.html', messages=messages)
 
