@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template, request, flash, redirect, session, g
+from flask import Flask, render_template, request, flash, redirect, session, jsonify, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
@@ -144,19 +144,23 @@ def add_like(message_id):
     """Like a message."""
     
     if not g.user:
-        flash("You must be logged in to like a message.", "danger")
-        return redirect("/login")
+        return jsonify({"message_id": message_id, "success": False, "error": "You must be logged in to like a message."}), 401
     
     try:
         message = Message.query.get_or_404(message_id)
+        
+        # check that the unlike is for a different user
+        if g.user.id == message.user.id:
+            return jsonify({"message_id": message_id, "success": False, "error": "You cannot like your own message."}), 400
+    
         g.user.likes.append(message)
 
         db.session.commit()
 
     except Exception as e:
-        flash(f"Something went wrong. {str(e)}", "danger")
+        return jsonify({"message_id": message_id, "success": False, "error": str(e)}), 400
 
-    return redirect(f"/")
+    return jsonify({"message_id": message_id, "success": True})
 
 # Remove Like Warble route
 @app.route('/users/remove_like/<int:message_id>', methods=["POST"])
@@ -164,19 +168,23 @@ def remove_like(message_id):
     """Unlike a message."""
     
     if not g.user:
-        flash("You must be logged in to unlike a message.", "danger")
-        return redirect("/login")
+        return jsonify({"message_id": message_id, "success": False, "error": "You must be logged in to unlike a message."}), 401
     
     try:
         message = Message.query.get_or_404(message_id)
+
+        # check that the unlike is for a different user
+        if g.user.id == message.user.id:
+            return jsonify({"message_id": message_id, "success": False, "error": "You cannot unlike your own message."}), 400
+
         g.user.likes.remove(message)
 
         db.session.commit()
 
     except Exception as e:
-        flash(f"Something went wrong. {str(e)}", "danger")
+        return jsonify({"message_id": message_id, "success": False, "error": str(e)}), 400
 
-    return redirect(f"/")
+    return jsonify({"message_id": message_id, "success": True})
 
 @app.route('/users/<int:user_id>')
 def users_show(user_id):
@@ -194,7 +202,6 @@ def users_show(user_id):
                 .all())
     return render_template('users/show.html', user=user, messages=messages)
 
-
 @app.route('/users/<int:user_id>/following')
 def show_following(user_id):
     """Show list of people this user is following."""
@@ -205,7 +212,6 @@ def show_following(user_id):
 
     user = User.query.get_or_404(user_id)
     return render_template('users/following.html', user=user)
-
 
 @app.route('/users/<int:user_id>/followers')
 def users_followers(user_id):
