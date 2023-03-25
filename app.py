@@ -138,6 +138,45 @@ def list_users():
 
     return render_template('users/index.html', users=users)
 
+# Like a Warble route
+@app.route('/users/add_like/<int:message_id>', methods=["POST"])
+def add_like(message_id):
+    """Like a message."""
+    
+    if not g.user:
+        flash("You must be logged in to like a message.", "danger")
+        return redirect("/login")
+    
+    try:
+        message = Message.query.get_or_404(message_id)
+        g.user.likes.append(message)
+
+        db.session.commit()
+
+    except Exception as e:
+        flash(f"Something went wrong. {str(e)}", "danger")
+
+    return redirect(f"/")
+
+# Remove Like Warble route
+@app.route('/users/remove_like/<int:message_id>', methods=["POST"])
+def remove_like(message_id):
+    """Unlike a message."""
+    
+    if not g.user:
+        flash("You must be logged in to unlike a message.", "danger")
+        return redirect("/login")
+    
+    try:
+        message = Message.query.get_or_404(message_id)
+        g.user.likes.remove(message)
+
+        db.session.commit()
+
+    except Exception as e:
+        flash(f"Something went wrong. {str(e)}", "danger")
+
+    return redirect(f"/")
 
 @app.route('/users/<int:user_id>')
 def users_show(user_id):
@@ -178,6 +217,17 @@ def users_followers(user_id):
 
     user = User.query.get_or_404(user_id)
     return render_template('users/followers.html', user=user)
+
+@app.route('/users/<int:user_id>/likes')
+def users_likes(user_id):
+    """Show list of likes of this user."""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    user = User.query.get_or_404(user_id)
+    return render_template('users/likes.html', user=user)
 
 
 @app.route('/users/follow/<int:follow_id>', methods=['POST'])
@@ -344,9 +394,7 @@ def homepage():
                     .limit(100)
                     .all())
         
-        
-
-        return render_template('home.html', messages=messages)
+        return render_template('home.html', messages=messages, likes=g.user.likes)
 
     else:
         return render_template('home-anon.html')
