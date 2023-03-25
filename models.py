@@ -129,6 +129,16 @@ class User(db.Model):
 
         found_user_list = [user for user in self.following if user == other_user]
         return len(found_user_list) == 1
+    
+    def change_password(self, new_password):
+        """Change password to new password."""
+
+        try:
+            self.password = bcrypt.generate_password_hash(new_password).decode('UTF-8')
+            return True
+        except:
+            return False
+
 
     @classmethod
     def signup(cls, username, email, password, image_url):

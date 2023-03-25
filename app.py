@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, flash, redirect, session, jso
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import UserAddForm, LoginForm, MessageForm
+from forms import ChangePasswordForm, UserAddForm, LoginForm, MessageForm
 from models import db, connect_db, User, Message
 
 CURR_USER_KEY = "curr_user"
@@ -235,7 +235,6 @@ def users_likes(user_id):
     user = User.query.get_or_404(user_id)
     return render_template('users/likes.html', user=user)
 
-
 @app.route('/users/follow/<int:follow_id>', methods=['POST'])
 def add_follow(follow_id):
     """Add a follow for the currently-logged-in user."""
@@ -250,7 +249,6 @@ def add_follow(follow_id):
 
     return redirect(f"/users/{g.user.id}/following")
 
-
 @app.route('/users/stop-following/<int:follow_id>', methods=['POST'])
 def stop_following(follow_id):
     """Have currently-logged-in-user stop following this user."""
@@ -264,7 +262,6 @@ def stop_following(follow_id):
     db.session.commit()
 
     return redirect(f"/users/{g.user.id}/following")
-
 
 @app.route('/users/profile', methods=["GET", "POST"])
 def edit_user():
@@ -311,8 +308,44 @@ def edit_user():
             flash(str(e.orig).split(':')[-1].strip(), 'danger')
 
 
-    return render_template('users/edit.html', form=form)
+    return render_template('users/edit.html', form=form, user_id=g.user.id)
 
+@app.route('/users/profile/password', methods=["GET", "POST"])
+def change_password():
+    """Edit user password."""
+
+    if not g.user:
+        flash("You must be logged in to change your password.", "danger")
+        return redirect("/login")
+
+    form = ChangePasswordForm(obj=g.user)
+
+    if form.validate_on_submit():
+        # new password must be different than current password
+        if form.current_password.data == form.new_password.data:
+            flash("New password must be different than current password.", 'danger')
+            return redirect('/users/profile/password')
+        
+        try:
+            user = User.authenticate(g.user.username, form.current_password.data)
+            
+            if user:
+                user.change_password(form.new_password.data)
+                db.session.commit()
+
+                flash("Password succesfully updated!", "success")
+                return redirect(f"/users/{user.id}")
+
+            flash("Incorrect password.", 'danger')
+            return redirect('/users/profile/password')
+
+        except IntegrityError as e:
+            # We are catching the errors before this point, but if we get an error
+            db.session.rollback()
+            flash(str(e.orig).split(':')[-1].strip(), 'danger')
+
+
+    return render_template('users/change_password.html', form=form, user_id=g.user.id)
 
 @app.route('/users/delete', methods=["POST"])
 def delete_user():
