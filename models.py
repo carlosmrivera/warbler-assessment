@@ -2,10 +2,9 @@
 
 from datetime import datetime
 
-from flask_bcrypt import Bcrypt
+import bcrypt
 from flask_sqlalchemy import SQLAlchemy
 
-bcrypt = Bcrypt()
 db = SQLAlchemy()
 
 
@@ -134,7 +133,7 @@ class User(db.Model):
         """Change password to new password."""
 
         try:
-            self.password = bcrypt.generate_password_hash(new_password).decode('UTF-8')
+            self.password = bcrypt.hashpw(new_password.encode('utf8'), bcrypt.gensalt()).decode('utf8')
             return True
         except:
             return False
@@ -147,7 +146,7 @@ class User(db.Model):
         Hashes password and adds user to system.
         """
 
-        hashed_pwd = bcrypt.generate_password_hash(password).decode('UTF-8')
+        hashed_pwd = bcrypt.hashpw(password.encode('utf8'), bcrypt.gensalt()).decode('utf8')
 
         user = User(
             username=username,
@@ -173,7 +172,7 @@ class User(db.Model):
         user = cls.query.filter_by(username=username).first()
 
         if user:
-            is_auth = bcrypt.check_password_hash(user.password, password)
+            is_auth = bcrypt.checkpw(password.encode('utf8'), user.password.encode('utf8'))
             if is_auth:
                 return user
 
